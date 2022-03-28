@@ -1,4 +1,0 @@
-e_lambda:0.1
-q_lambda1:0.1
-q_lambda2:0.001
-dev_test:./pos_data/ass1-tagger-dev
