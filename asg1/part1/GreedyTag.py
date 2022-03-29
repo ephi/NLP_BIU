@@ -2,6 +2,7 @@ import sys
 import MLETrain
 from MLETrain import ExtraFileOpts
 import AccuracyChecker
+import numpy as np
 
 
 def update_window(window, word):
@@ -29,22 +30,35 @@ def predict_tags(input_f_name, output_f_name, opts=None):
     e_lambda = None
     q_lambda1 = None
     q_lambda2 = None
+    q_lambda3 = None
     if opts is not None:
         e_lambda = opts.get_option("e_lambda")
         q_lambda1 = opts.get_option("q_lambda1")
         q_lambda2 = opts.get_option("q_lambda2")
+        q_lambda3 = opts.get_option("q_lambda3")
+
     with open(input_f_name, 'r', encoding='utf-8') as file:
         with open(output_f_name, 'w', encoding='utf-8') as outfile:
-            window = [None, None]
             for line in file.readlines():
+                line = line.strip()
+                window = [MLETrain.START_TAG, MLETrain.START_TAG]
                 str_r = ""
-                for word in line.strip().split(" "):
-                    max_tag_p = 0
+                for i, word in enumerate(line.strip().split(" ")):
+                    max_tag_p = float('-inf')
                     max_tag_v = ""
-                    for tag in MLETrain.g_tag_dic.keys():
-                        cur_tag_p = MLETrain.get_e((word, tag), e_lambda) * MLETrain.get_q(tag, window[0],
-                                                                                                window[1],
-                                                                                                q_lambda1, q_lambda2)
+                    if word.lower() not in MLETrain.g_tag_per_word_dic.keys():
+                        word = MLETrain.create_word_signature(word)
+                        if word == '^UNK':
+                            str_r += f"{word}/{'*UNK*'} "
+                            update_window(window, '*UNK*')
+                            continue
+                    else:
+                        word = word.lower()
+                    for tag in MLETrain.g_tag_per_word_dic[word]:
+                        if tag == MLETrain.START_TAG or tag == MLETrain.END_TAG:
+                            continue
+                        cur_tag_p = (np.log(MLETrain.get_e((word, tag))) +
+                                    np.log(MLETrain.get_q(tag, window[0], window[1], q_lambda1, q_lambda2, q_lambda3)))
                         if cur_tag_p > max_tag_p:
                             max_tag_p = cur_tag_p
                             max_tag_v = tag

@@ -1,5 +1,6 @@
 import sys
 import itertools
+from utils import create_word_signature
 
 
 # This object holds information from extra_file, if exists.
@@ -24,120 +25,40 @@ class ExtraFileOpts:
         self.opts[name] = value
 
 
-# counters for MLE
-g_tag_dic = None
-g_word_tag_dic = None
-g_vocabulary_size = None
+START_TAG = '<S>'
+END_TAG = '<E>'
 
-g_transition_dic = None
-g_number_of_tags = None
+# counters for MLE
+g_tag_dic = {}
+g_word_tag_dic = {}
+g_vocabulary_size = 0
+
+g_transition_dic = {}
+g_number_of_tags = 0
 
 # aux for viterbi algorithm, saving all detected tags per word
-g_tag_per_word_dic = None
+g_tag_per_word_dic = {}
 
 
-def get_tags(word):
-    global g_tag_per_word_dic
-    if g_tag_per_word_dic is None:
-        print("please call build_emission_counters before calling get_tags")
-    w = word.lower()
-    return g_tag_per_word_dic.get(w, set())
+def get_q(t1, t2, t3, lambda1, lambda2, lambda3):
+    # Perform a weighted linear interpolation in order to compute the estimate for q.
+    q3 = g_transition_dic[(t3, t2, t1)] / g_transition_dic[(t3, t2)] \
+        if (t3, t2, t1) in g_transition_dic.keys() else 0
+    q2 = g_transition_dic[(t2, t1)] / g_transition_dic[(t2,)] \
+        if f'{t2} {t1}' in g_transition_dic.keys() else 0
+    q1 = g_transition_dic[(t1,)] / g_number_of_tags
+
+    return (lambda3 * q3) + (lambda2 * q2) + (lambda1 * q1)
 
 
-# in (word,tag)
-# out: lidstone smoothed p(word|tag) based on MLE
-def get_e(word_tag_tuple, smoothing_lambda=None):
-    global g_tag_dic
-    global g_word_tag_dic
-    if g_tag_dic is None or g_word_tag_dic is None:
-        print("please call build_emission_counters with emission (e.mle) file path first.")
-        return
-    if smoothing_lambda is None:
-        smoothing_lambda = 1
-    word = word_tag_tuple[0].lower()
+def get_e(word_tag_tuple):
+    word = word_tag_tuple[0]
+    if word[0] != '^':
+        word = word.lower()
     tag = word_tag_tuple[1]
-    den = g_tag_dic.get(tag, 0)
+
     key = (word, tag)
-    nem = g_word_tag_dic.get(key, 0)
-    # using lidstone smoothing. assume the vocabulary size
-    # is the # of unique words in the training data
-    return (nem + smoothing_lambda) / (den + (smoothing_lambda * g_vocabulary_size))
-
-
-def get_q_t1(t1, lambda1=None):
-    global g_number_of_tags
-    global g_transition_dic
-    if g_transition_dic is None or g_number_of_tags is None:
-        print("please call build_transition_counters with transition (q.mle) file path first.")
-        return
-    if lambda1 + (1 - lambda1) != 1:
-        print("lambda1 is not in range [0,1]")
-        return
-    if lambda1 is None:
-        lambda1 = 0.01
-    key = (t1, None, None)
-    # lidstone smooth before end
-    p_t1 = (lambda1 + g_transition_dic[key]) / (g_number_of_tags + lambda1 * g_number_of_tags)
-    return p_t1
-
-
-def get_q_t1_given_t2(t1, t2, lambda1=None):
-    global g_number_of_tags
-    global g_transition_dic
-    if g_transition_dic is None or g_number_of_tags is None:
-        print("please call build_transition_counters with transition (q.mle) file path first.")
-        return
-    if lambda1 is None:
-        lambda1 = 0.1
-    key_den = (t2, None, None)
-    key_nem = (t2, t1, None)
-    value_nem = g_transition_dic.get(key_nem, 0)
-    value_den = g_transition_dic.get(key_den, 0)
-    p_t1_given_t2 = 0
-    if value_den > 0:
-        p_t1_given_t2 = (value_nem / value_den)
-    p_t1 = get_q_t1(t1, lambda1)
-    p_t1_given_t2 = p_t1_given_t2 * lambda1 + p_t1 * (1 - lambda1)
-    return p_t1_given_t2
-
-
-def get_q_t1_given_t2_t3(t1, t2, t3, lambda1=None, lambda2=None):
-    global g_number_of_tags
-    global g_transition_dic
-    if g_transition_dic is None or g_number_of_tags is None:
-        print("please call build_transition_counters with transition (q.mle) file path first.")
-        return
-    if lambda1 is None:
-        lambda1 = 0.01
-    if lambda2 is None:
-        lambda2 = 0.1
-    key_den = (t2, t1, None)
-    key_nem = (t3, t2, t1)
-    value_den = g_transition_dic.get(key_den, 0)
-    value_nem = g_transition_dic.get(key_nem, 0)
-    p_t1_given_t2_t3 = 0
-    if value_den > 0:
-        p_t1_given_t2_t3 = (value_nem / value_den)
-    pt1 = get_q_t1(t1, lambda1)
-    p_t1_t2 = get_q_t1_given_t2(t1, t2, lambda2)
-    p_t1_given_t2_t3 = p_t1_given_t2_t3 * lambda1 + p_t1_t2 * lambda2 + (1 - lambda1 - lambda2) * pt1
-    return p_t1_given_t2_t3
-
-
-# in: tags: t1,t2(opt),t3(opt)
-# out: p(t1) if t2 & t3 were not given
-#      p(t2|t2) if t3 is not given
-#      p(t3|t2,t1)
-# all as MLE. using linear interpolation for smoothing:
-#   p(t1) = lidstone smoothing
-#   p(t1|t2) = lambda1*p(t2) + (1-lambda1)*p(t1|t2)
-#   p(t1|t2,t3)=  p(t1|t2,t3)*lambda1+p(t1|t2)*lambda2+p(t3)*(1-lambda1-lambda2)
-def get_q(t1, t2=None, t3=None, lambda1=None, lambda2=None):
-    if t2 is None and t3 is None:
-        return get_q_t1(t1, lambda1)
-    if t2 is not None and t3 is None:
-        return get_q_t1_given_t2(t1, t2, lambda1)
-    return get_q_t1_given_t2_t3(t1, t2, t3, lambda1, lambda2)
+    return g_word_tag_dic[key] / g_tag_dic[tag]
 
 
 def build_transition_counters(q_mle_f_name):
@@ -150,12 +71,9 @@ def build_transition_counters(q_mle_f_name):
             r = line.strip().split("\t")
             value = int(r[1])
             tags = r[0].split(" ")
-            key = [None, None, None]
-            for i, tag in enumerate(tags):
-                key[i] = tag
-            if key[1] is None:
+            if len(tags) == 1:
                 g_number_of_tags += value
-            g_transition_dic[tuple(key)] = value
+            g_transition_dic[tuple(tags)] = value
 
 
 def build_emission_counters(e_mle_f_name):
@@ -174,60 +92,71 @@ def build_emission_counters(e_mle_f_name):
             key = []
             words = r[0].split(" ")
             tag = words[1]
-            for w in words:
-                key.append(w)
-                if tag != w:
-                    word_tag_set = g_tag_per_word_dic.get(w, set())
-                    word_tag_set.add(tag)
-                    g_tag_per_word_dic[w] = word_tag_set
-            key = tuple(key)
+            word = words[0]
+
+            word_tag_set = g_tag_per_word_dic.get(word, set())
+            word_tag_set.add(tag)
+            g_tag_per_word_dic[word] = word_tag_set
+
+            key = tuple([word, tag])
             g_word_tag_dic[key] = count
             g_tag_dic[tag] = g_tag_dic.get(tag, 0) + count
             g_vocabulary_size += 1
 
 
-def build_ngram_from_input(input_f_name, gram_n):
+def build_ngram_from_input(input_f_name: str, gram_n: int):
     # get tags as ngram
     tags_ngram_dic = {}
     with open(input_f_name, 'r', encoding='utf-8') as file:
-        fdata = file.read().replace("\n", " ")
-        splitdta = fdata.split(" ")
-        n = len(splitdta)
-        for i in range(0, n - (gram_n - 1), gram_n):
-            proc = []
-            for k in range(i, i + gram_n):
-                proc.append(splitdta[k])
-            key = []
-            for dta in proc:
-                r = dta.split('/')
-                key.append(r[-1])
-            key = tuple(key)
-            tags_ngram_dic[key] = tags_ngram_dic.get(key, 0) + 1
+        for line in file.readlines():
+            line = f'startline/{START_TAG} startline/{START_TAG} {line.strip()} endline/{END_TAG}'
+            splitdta = line.split(" ")
+            n = len(splitdta)
+            for i in range(0, n - (gram_n - 1), 1):
+                proc = splitdta[i:(i+gram_n)]
+                key = []
+                for dta in proc:
+                    r = dta.split('/')
+                    key.append(r[-1])
+                key = tuple(key)
+                tags_ngram_dic[key] = tags_ngram_dic.get(key, 0) + 1
     return tags_ngram_dic
 
 
-def dataset_input_to_e_mle_q_mle(input_f_name, e_mle_f_name, q_mle_fname):
+def build_word_tag_dict_from_input(input_f_name: str, as_signature: bool = False):
     word_tag_dic = {}
-    tags_unigram_dic = {}
 
     with open(input_f_name, 'r', encoding='utf-8') as file:
         for line in file.readlines():
-            for s in line.strip().split(" "):
+            line = f'startline/{START_TAG} startline/{START_TAG} {line.strip()} endline/{END_TAG}'
+            for s in line.split(" "):
                 r = s.split('/')
                 try:
                     word, tag = r
-                except Exception as e:
+                except ValueError:
                     l_r = len(r) - 2
                     word = ''.join([x + '/' for x in itertools.islice(r, 0, l_r)])
                     word += r[-2]
                     tag = r[-1]
-                tag = tag
-                word = word.lower()
+
+                if as_signature:
+                    word = create_word_signature(word)
+                    # if word == '^UNK':
+                    #     continue
+                else:
+                    word = word.lower()
                 key = (word, tag)
                 word_tag_dic[key] = word_tag_dic.get(key, 0) + 1
-                tags_unigram_dic[tag] = tags_unigram_dic.get(tag, 0) + 1
-    write_e_mle_file(e_mle_f_name, word_tag_dic)
+    return word_tag_dic
 
+
+def dataset_input_to_e_mle_q_mle(input_f_name, e_mle_f_name, q_mle_fname):
+    word_tag_dict = build_word_tag_dict_from_input(input_f_name)
+    word_signature_tag_dict = build_word_tag_dict_from_input(input_f_name, as_signature=True)
+    write_e_mle_file(e_mle_f_name, [word_tag_dict, word_signature_tag_dict])
+
+    # get tags as unigrams
+    tags_unigram_dic = build_ngram_from_input(input_f_name, 1)
     # get tags as bigrams
     tags_bigram_dic = build_ngram_from_input(input_f_name, 2)
     # get tags as trigrams
@@ -235,11 +164,12 @@ def dataset_input_to_e_mle_q_mle(input_f_name, e_mle_f_name, q_mle_fname):
     write_q_mle_file(q_mle_fname, [tags_unigram_dic, tags_bigram_dic, tags_trigram_dic])
 
 
-def write_e_mle_file(e_mle_f_name, word_tag_dic):
+def write_e_mle_file(e_mle_f_name, word_tag_dicts):
     with open(e_mle_f_name, 'w', encoding='utf-8') as file:
         str_to_write = ""
-        for e in word_tag_dic:
-            str_to_write += f"{e[0]} {e[1]}\t{word_tag_dic[e]}\n"
+        for word_tag_dict in word_tag_dicts:
+            for t in word_tag_dict:
+                str_to_write += f"{t[0]} {t[1]}\t{word_tag_dict[t]}\n"
         str_to_write = str_to_write.rstrip()
         file.write(str_to_write)
 
@@ -250,11 +180,7 @@ def write_q_mle_file(q_mle_f_name, tags_dics):
         for tag_dic in tags_dics:
             for t in tag_dic:
                 if type(t) is tuple:
-                    str = ""
-                    n = len(t)
-                    for i in range(0, n - 1):
-                        str += f"{t[i]} "
-                    str_to_write += str + f"{t[n - 1]}\t{tag_dic[t]}\n"
+                    str_to_write += f"{' '.join(t)}\t{tag_dic[t]}\n"
                 else:
                     str_to_write += f"{t}\t{tag_dic[t]}\n"
         str_to_write = str_to_write.rstrip()
