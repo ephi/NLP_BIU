@@ -1,0 +1,4 @@
+q_lambda1:0.1
+q_lambda2:0.1
+q_lambda3:0.8
+dev_test:./pos_data/ass1-tagger-dev
