@@ -6,8 +6,9 @@ def create_word_signature(word):
                    'ment', 'ness', 'ship', 'tion', 'sion']
     verb_suffix = ['ate', 'en', 'fy', 'ify', 'ize']
     adgective_suffix = ['able', 'ible', 'al', 'ful', 'ic', 'ical', 'ous', 'ish', 'ive', 'less']
-    general_suffix = ['ing', 'ed', 'ure', 'age']
-    for suffix in naun_suffix+verb_suffix+adgective_suffix+general_suffix:
+    general_suffix = ['ing', 'ed', 'ure', 'age', 'ages']
+    word = word.lower()
+    for suffix in naun_suffix + verb_suffix + adgective_suffix + general_suffix:
         if word[-len(suffix):] == suffix:
             return f'^{suffix.upper()}'
 

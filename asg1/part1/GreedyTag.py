@@ -46,19 +46,21 @@ def predict_tags(input_f_name, output_f_name, opts=None):
                 for i, word in enumerate(line.strip().split(" ")):
                     max_tag_p = float('-inf')
                     max_tag_v = ""
-                    if word.lower() not in MLETrain.g_tag_per_word_dic.keys():
-                        word = MLETrain.create_word_signature(word)
-                        if word == '^UNK':
-                            str_r += f"{word}/{'*UNK*'} "
-                            update_window(window, '*UNK*')
-                            continue
-                    else:
+                    if word not in MLETrain.g_tag_per_word_dic.keys():
                         word = word.lower()
+                        if word not in MLETrain.g_tag_per_word_dic.keys():
+                            word = MLETrain.create_word_signature(word)
+                            if word == '^UNK':
+                                str_r += f"{word}/{'*UNK*'} "
+                                update_window(window, '*UNK*')
+                                continue
+                    # else:
+                    #     word = word.lower()
                     for tag in MLETrain.g_tag_per_word_dic[word]:
                         if tag == MLETrain.START_TAG or tag == MLETrain.END_TAG:
                             continue
-                        cur_tag_p = (np.log(MLETrain.get_e((word, tag))) +
-                                    np.log(MLETrain.get_q(tag, window[0], window[1], q_lambda1, q_lambda2, q_lambda3)))
+                        cur_tag_p = (np.log(MLETrain.get_e((word, tag), e_lambda)) +
+                                     np.log(MLETrain.get_q(tag, window[0], window[1], q_lambda1, q_lambda2, q_lambda3)))
                         if cur_tag_p > max_tag_p:
                             max_tag_p = cur_tag_p
                             max_tag_v = tag

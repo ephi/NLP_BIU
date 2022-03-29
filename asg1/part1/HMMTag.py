@@ -7,10 +7,12 @@ import numpy as np
 
 
 def predict_tags(input_f_name, output_f_name, opts=None):
+    e_lambda = None
     q_lambda1 = None
     q_lambda2 = None
     q_lambda3 = None
     if opts is not None:
+        e_lambda = opts.get_option("e_lambda")
         q_lambda1 = opts.get_option("q_lambda1")
         q_lambda2 = opts.get_option("q_lambda2")
         q_lambda3 = opts.get_option("q_lambda3")
@@ -31,10 +33,12 @@ def predict_tags(input_f_name, output_f_name, opts=None):
                 prev_prev_word = 'startline'
 
                 for i, word in enumerate(words):
-                    if word.lower() not in MLETrain.g_tag_per_word_dic.keys():
-                        word = MLETrain.create_word_signature(word)
-                    else:
+                    if word not in MLETrain.g_tag_per_word_dic.keys():
                         word = word.lower()
+                        if word not in MLETrain.g_tag_per_word_dic.keys():
+                            word = MLETrain.create_word_signature(word)
+                    # else:
+                    #     word = word.lower()
                     possible_tags = MLETrain.g_tag_per_word_dic[word]
                     prev_tag_set = MLETrain.g_tag_per_word_dic[prev_word]
                     prev_prev_tag_set = MLETrain.g_tag_per_word_dic[prev_prev_word]
@@ -47,9 +51,10 @@ def predict_tags(input_f_name, output_f_name, opts=None):
                         for (prev_prev_tag, prev_tag) in prev_tags:
                             k = tags.index(prev_tag)
                             l = tags.index(prev_prev_tag)
-                            cur_tag_p = ((0 if i == 0 else V[i-1, k, l]) +
-                                         np.log(MLETrain.get_e((word, tag))) +
-                                         np.log(MLETrain.get_q(tag, prev_tag, prev_prev_tag, q_lambda1, q_lambda2, q_lambda3)))
+                            cur_tag_p = ((0 if i == 0 else V[i - 1, k, l]) +
+                                         np.log(MLETrain.get_e((word, tag), e_lambda)) +
+                                         np.log(MLETrain.get_q(tag, prev_tag, prev_prev_tag, q_lambda1, q_lambda2,
+                                                               q_lambda3)))
 
                             if cur_tag_p > V[i, j, k]:
                                 V[i, j, k] = cur_tag_p

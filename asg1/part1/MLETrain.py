@@ -51,14 +51,20 @@ def get_q(t1, t2, t3, lambda1, lambda2, lambda3):
     return (lambda3 * q3) + (lambda2 * q2) + (lambda1 * q1)
 
 
-def get_e(word_tag_tuple):
+def get_e(word_tag_tuple, lambda1=None):
+    if lambda1 is None:
+        lambda1 = 0.35
     word = word_tag_tuple[0]
-    if word[0] != '^':
-        word = word.lower()
+    # if word[0] != '^':
+    #     word = word.lower()
     tag = word_tag_tuple[1]
 
     key = (word, tag)
-    return g_word_tag_dic[key] / g_tag_dic[tag]
+    word_tag_val = g_word_tag_dic.get(key, None)
+    # if word_tag_val is None:
+    #     word_tag_val = g_word_tag_dic[(word.lower(), tag)]
+
+    return (word_tag_val + lambda1) / (g_tag_dic[tag] + g_vocabulary_size * lambda1)
 
 
 def build_transition_counters(q_mle_f_name):
@@ -89,7 +95,6 @@ def build_emission_counters(e_mle_f_name):
         for line in file.readlines():
             r = line.strip().split("\t")
             count = int(r[1])
-            key = []
             words = r[0].split(" ")
             tag = words[1]
             word = words[0]
@@ -113,7 +118,7 @@ def build_ngram_from_input(input_f_name: str, gram_n: int):
             splitdta = line.split(" ")
             n = len(splitdta)
             for i in range(0, n - (gram_n - 1), 1):
-                proc = splitdta[i:(i+gram_n)]
+                proc = splitdta[i:(i + gram_n)]
                 key = []
                 for dta in proc:
                     r = dta.split('/')
@@ -143,8 +148,8 @@ def build_word_tag_dict_from_input(input_f_name: str, as_signature: bool = False
                     word = create_word_signature(word)
                     # if word == '^UNK':
                     #     continue
-                else:
-                    word = word.lower()
+                # else:
+                #     word = word.lower()
                 key = (word, tag)
                 word_tag_dic[key] = word_tag_dic.get(key, 0) + 1
     return word_tag_dic
