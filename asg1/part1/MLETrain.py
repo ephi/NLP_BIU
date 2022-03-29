@@ -45,7 +45,7 @@ def get_q(t1, t2, t3, lambda1, lambda2, lambda3):
     q3 = g_transition_dic[(t3, t2, t1)] / g_transition_dic[(t3, t2)] \
         if (t3, t2, t1) in g_transition_dic.keys() else 0
     q2 = g_transition_dic[(t2, t1)] / g_transition_dic[(t2,)] \
-        if f'{t2} {t1}' in g_transition_dic.keys() else 0
+        if (t2, t1) in g_transition_dic.keys() else 0
     q1 = g_transition_dic[(t1,)] / g_number_of_tags
 
     return (lambda3 * q3) + (lambda2 * q2) + (lambda1 * q1)

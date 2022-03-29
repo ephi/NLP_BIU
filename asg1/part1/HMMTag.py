@@ -59,8 +59,6 @@ def predict_tags(input_f_name, output_f_name, opts=None):
                             if cur_tag_p > V[i, j, k]:
                                 V[i, j, k] = cur_tag_p
                                 B[i, j, k] = prev_prev_tag
-                        if np.all(V[i, :, :] == float('-inf')):
-                            print('k')
 
                     prev_prev_word = prev_word
                     prev_word = word
