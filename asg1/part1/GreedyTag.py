@@ -46,14 +46,14 @@ def predict_tags(input_f_name, output_f_name, opts=None):
                 for i, word in enumerate(line.strip().split(" ")):
                     max_tag_p = float('-inf')
                     max_tag_v = ""
+                    original_word = word
                     if word not in MLETrain.g_tag_per_word_dic.keys():
                         word = word.lower()
                         if word not in MLETrain.g_tag_per_word_dic.keys():
                             word = MLETrain.create_word_signature(word)
-                            if word == '^UNK':
-                                str_r += f"{word}/{'*UNK*'} "
-                                update_window(window, '*UNK*')
-                                continue
+                            # if word == '^UNK':
+                            #     #str_r += f"{original_word}/{'*UNK*'} "
+                            #     #update_window(window, '*UNK*')
                     # else:
                     #     word = word.lower()
                     for tag in MLETrain.g_tag_per_word_dic[word]:
@@ -64,7 +64,7 @@ def predict_tags(input_f_name, output_f_name, opts=None):
                         if cur_tag_p > max_tag_p:
                             max_tag_p = cur_tag_p
                             max_tag_v = tag
-                    str_r += f"{word}/{max_tag_v} "
+                    str_r += f"{original_word}/{max_tag_v} "
                     update_window(window, max_tag_v)
                 str_r = str_r.rstrip() + "\n"
                 outfile.write(str_r)

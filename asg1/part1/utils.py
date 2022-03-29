@@ -3,7 +3,7 @@ import re
 
 def create_word_signature(word):
     naun_suffix = ['acy', 'al', 'ance', 'ence', 'dom', 'er', 'or', 'ism', 'ist', 'ty', 'ity',
-                   'ment', 'ness', 'ship', 'tion', 'sion']
+                   'ment', 'ness', 'ship', 'tion', 'sion', 'is']
     verb_suffix = ['ate', 'en', 'fy', 'ify', 'ize']
     adgective_suffix = ['able', 'ible', 'al', 'ful', 'ic', 'ical', 'ous', 'ish', 'ive', 'less']
     general_suffix = ['ing', 'ed', 'ure', 'age', 'ages']
