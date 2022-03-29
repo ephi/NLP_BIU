@@ -60,11 +60,9 @@ def get_e(word_tag_tuple, lambda1=None):
     tag = word_tag_tuple[1]
 
     key = (word, tag)
-    word_tag_val = g_word_tag_dic.get(key, None)
-    # if word_tag_val is None:
-    #     word_tag_val = g_word_tag_dic[(word.lower(), tag)]
+    word_tag_value = g_word_tag_dic.get(key, 0)
 
-    return (word_tag_val + lambda1) / (g_tag_dic[tag] + g_vocabulary_size * lambda1)
+    return (word_tag_value + lambda1) / (g_tag_dic[tag] + g_vocabulary_size * lambda1)
 
 
 def build_transition_counters(q_mle_f_name):

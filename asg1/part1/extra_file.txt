@@ -1,3 +1,4 @@
+e_lambda:0.35
 q_lambda1:0.2
 q_lambda2:0.1
 q_lambda3:0.7
