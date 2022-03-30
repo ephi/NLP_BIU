@@ -60,7 +60,16 @@ def map_features_to_vectors(features_f_name, feature_map_file_name):
 
 
 def train_model(X, y):
-    classifier = SGDClassifier(loss="log").partial_fit(X, y, classes=np.unique(y))
+    classifier = SGDClassifier(loss="log")
+    y = np.array(y)
+    for i in range(0, 10):
+        idx = np.random.randint(X.shape[0], size=int(X.shape[0] * 0.2))
+        Y_batch = y[idx]
+        X_batch = X[idx, :]
+        cls_cnt = None
+        if i == 0:
+            cls_cnt = np.unique(y)
+        classifier = classifier.partial_fit(X_batch, Y_batch, classes=cls_cnt)
     return classifier
 
 

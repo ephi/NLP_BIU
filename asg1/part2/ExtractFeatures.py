@@ -69,9 +69,9 @@ def extract(i, word_tag_pair_list):
     # dict["pw"] = prev_pair[0]
     # dict["ppw"] = prev_prev_pair[0]
     dict["pt"] = prev_pair[1]
-    # dict["ppt_pt"] = prev_prev_pair[1] + "|" + dict["pt"]
-    # dict["fw"] = future_pair[0]
-    # dict["ffw"] = future_future_pair[0]
+    dict["ppt_pt"] = prev_prev_pair[1] + "|" + dict["pt"]
+    dict["fw"] = future_pair[0]
+    dict["ffw"] = future_future_pair[0]
     dict["w_not_feature"] = word
     if not is_rare(word):
         dict["w"] = word
@@ -86,9 +86,6 @@ def write_features_to_output(output_f_name):
     with open(output_f_name, "w") as out_f:
         for i, word_tag_pair in enumerate(g_word_tag_pair_list):
             if word_tag_pair[0] == "startline" or word_tag_pair[0] == "endline":
-                continue
-            p = random.uniform(0, 1)
-            if p > 0.1:
                 continue
             out_feature_line = word_tag_pair[1]
             features = extract(i, g_word_tag_pair_list)
