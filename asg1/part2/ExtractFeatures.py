@@ -1,5 +1,6 @@
 import sys
 import re
+import random
 
 g_word_freq_dic = {}
 g_word_tag_pair_list = []
@@ -58,18 +59,20 @@ def add_specials_to_dict(word, dict):
 # word = w_i
 # future_words_pairs[0] =(w_i + 1, tag(w_i + 1))
 # future_words_pairs[1] = (w_i + 2, tag(w_i + 2))
-def extract(word, i, word_tag_pair_list):
+def extract(i, word_tag_pair_list):
     dict = {}
+    word = word_tag_pair_list[i][0]
     prev_prev_pair = word_tag_pair_list[i - 2]
     prev_pair = word_tag_pair_list[i - 1]
     future_pair = word_tag_pair_list[i + 1]
     future_future_pair = word_tag_pair_list[i + 2]
-    dict["pw"] = prev_pair[0]
-    dict["ppw"] = prev_prev_pair[0]
+    # dict["pw"] = prev_pair[0]
+    # dict["ppw"] = prev_prev_pair[0]
     dict["pt"] = prev_pair[1]
-    dict["ppt_pt"] = prev_prev_pair[1] + " " + dict["pt"]
-    dict["fw"] = future_pair[0]
-    dict["ffw"] = future_future_pair[0]
+    # dict["ppt_pt"] = prev_prev_pair[1] + "|" + dict["pt"]
+    # dict["fw"] = future_pair[0]
+    # dict["ffw"] = future_future_pair[0]
+    dict["w_not_feature"] = word
     if not is_rare(word):
         dict["w"] = word
     else:
@@ -84,9 +87,12 @@ def write_features_to_output(output_f_name):
         for i, word_tag_pair in enumerate(g_word_tag_pair_list):
             if word_tag_pair[0] == "startline" or word_tag_pair[0] == "endline":
                 continue
+            p = random.uniform(0, 1)
+            if p > 0.1:
+                continue
             out_feature_line = word_tag_pair[1]
-            features = extract(word_tag_pair[0], i, g_word_tag_pair_list)
-            out = ''.join([key + "=" + val + " " for key, val in features.items()])
+            features = extract(i, g_word_tag_pair_list)
+            out = ''.join([key + "~=" + val + " " for key, val in features.items()])
             out = out_feature_line + " " + out.strip() + "\n"
             out_f.write(out)
 
