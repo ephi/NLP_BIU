@@ -58,12 +58,12 @@ def add_specials_to_dict(word, dict):
 # word = w_i
 # future_words_pairs[0] =(w_i + 1, tag(w_i + 1))
 # future_words_pairs[1] = (w_i + 2, tag(w_i + 2))
-def extract(word, i):
+def extract(word, i, word_tag_pair_list):
     dict = {}
-    prev_prev_pair = g_word_tag_pair_list[i - 2]
-    prev_pair = g_word_tag_pair_list[i - 1]
-    future_pair = g_word_tag_pair_list[i + 1]
-    future_future_pair = g_word_tag_pair_list[i + 2]
+    prev_prev_pair = word_tag_pair_list[i - 2]
+    prev_pair = word_tag_pair_list[i - 1]
+    future_pair = word_tag_pair_list[i + 1]
+    future_future_pair = word_tag_pair_list[i + 2]
     dict["pw"] = prev_pair[0]
     dict["ppw"] = prev_prev_pair[0]
     dict["pt"] = prev_pair[1]
@@ -85,7 +85,7 @@ def write_features_to_output(output_f_name):
             if word_tag_pair[0] == "startline" or word_tag_pair[0] == "endline":
                 continue
             out_feature_line = word_tag_pair[1]
-            features = extract(word_tag_pair[0], i)
+            features = extract(word_tag_pair[0], i, g_word_tag_pair_list)
             out = ''.join([key + "=" + val + " " for key, val in features.items()])
             out = out_feature_line + " " + out.strip() + "\n"
             out_f.write(out)
