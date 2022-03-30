@@ -133,14 +133,8 @@ def build_word_tag_dict_from_input(input_f_name: str, as_signature: bool = False
         for line in file.readlines():
             line = f'startline/{START_TAG} startline/{START_TAG} {line.strip()} endline/{END_TAG}'
             for s in line.split(" "):
-                r = s.split('/')
-                try:
-                    word, tag = r
-                except ValueError:
-                    l_r = len(r) - 2
-                    word = ''.join([x + '/' for x in itertools.islice(r, 0, l_r)])
-                    word += r[-2]
-                    tag = r[-1]
+                r = s.rsplit('/', 1)
+                word, tag = r
 
                 if as_signature:
                     word = create_word_signature(word)
