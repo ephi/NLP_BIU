@@ -1,61 +1,94 @@
 import sys
-from part1.utils import create_word_signature
+import re
+
+g_word_freq_dic = {}
+g_word_tag_pair_list = []
 
 
-def build_word_dict_from_input(input_f_name: str):
-    word_dic = {}
-
+def build_word_dicts_from_input(input_f_name: str):
     with open(input_f_name, 'r', encoding='utf-8') as file:
         for line in file.readlines():
+            start_pair = ("startline", "<S>")
+            g_word_tag_pair_list.append(start_pair)
+            g_word_tag_pair_list.append(start_pair)
             for s in line.strip().split(" "):
-                word = s.rsplit('/', 1)[0]
-                word_dic[word] = word_dic.get(word, 0) + 1
-    return word_dic
+                r = s.rsplit('/', 1)
+                word = r[0]
+                g_word_freq_dic[word] = g_word_freq_dic.get(word, 0) + 1
+                pair = (word, r[1])
+                g_word_tag_pair_list.append(pair)
+            end_pair = ("endline", "<E>")
+            g_word_tag_pair_list.append(end_pair)
+            g_word_tag_pair_list.append(end_pair)
 
 
-g_word_dict = {}
+def is_rare(word):
+    return g_word_freq_dic.get(word, 0) <= 3
 
 
-def is_rare(word, word_dict):
-    return word_dict.get(word, 0) <= 3
+def add_suffixes_to_dict(word, fix_len, dict):
+    for i in range(1, fix_len + 1):
+        dict["s" + str(i)] = word[-i:]
 
 
-def extract(word, prev_pairs_list, future_words_list, word_dict):
-    return {
-        'w': word if not is_rare(word, word_dict) else '',
-        'pw': prev_pairs_list[0][0] if not is_rare(prev_pairs_list[0][0], word_dict) else '',
-        'pt': prev_pairs_list[0][1],
-        'ppw': prev_pairs_list[1][0] if not is_rare(prev_pairs_list[1][0], word_dict) else '',
-        'ppt': prev_pairs_list[1][1],
-        'fw': future_words_list[0][0] if not is_rare(future_words_list[0][0], word_dict) else '',
-        'ffw': future_words_list[1][0] if not is_rare(future_words_list[1][0], word_dict) else '',
-        'ws': create_word_signature(word),
-        'p1': word[:1],
-        's1': word[-1:],
-        'p2': word[:2] if len(word) >= 2 else '',
-        's2': word[-2:] if len(word) >= 2 else '',
-        'p3': word[:3] if len(word) >= 3 else '',
-        's3': word[-3:] if len(word) >= 3 else ''
-    }
+def add_postfixes_to_dict(word, fix_len, dict):
+    for i in range(1, fix_len + 1):
+        dict["p" + str(i)] = word[:i]
 
 
-def extract_features(input_f_name, output_f_name):
-    with open(input_f_name, "r", encoding="utf-8") as input_file:
-        with open(output_f_name, "w") as output_file:
-            lines = input_file.readlines()
+def add_specials_to_dict(word, dict):
+    # if entry is not found at dic, then, feature doesn't exist
 
-            for line in lines:
-                prev_pair = ('startline', '<S>')
-                prev_prev_pair = ('startline', '<S>')
-                pairs = [tuple(pair.split('/')) for pair in line.strip().split(' ')]
-                pairs += [('endline', '<E>'), ('endline', '<E>')]
-                for i, pair in enumerate(pairs[:-2]):
-                    features = extract(pair[0], [prev_pair, prev_prev_pair],
-                                       [pairs[i + 1][0], pairs[i + 2][0]], g_word_dict)
-                    output_file.write(' '.join([key + "=" + val for key, val in features.items()]) + f' {pair[1]}\n')
+    # digits
+    if re.search(r'^[0-9]+[,/.][0-9]+[,]?[0-9]*$', word) is not None:
+        dict["c_digit"] = "T"
+    # time
+    if re.search(r'^[0-9]+:[0-9]+$', word) is not None:
+        dict["c_time"] = "T"
+    # fruc
+    if re.search(r'^[0-9]+/[0-9]+-[a-zA-Z]+[-]?[a-zA-Z]*$', word) is not None:
+        dict["c_fruc"] = "T"
+    # upper case
+    if re.search(r'^[A-Z]+$', word) is not None:
+        dict["c_upper"] = "T"
 
-                    prev_prev_pair = prev_pair
-                    prev_pair = pair
+
+# prev_words_pairs[0] = (w_i-2, tag(w_i-2))
+# prev_words_pairs[1] = (w_i-1, tag(w_i-1))
+# word = w_i
+# future_words_pairs[0] =(w_i + 1, tag(w_i + 1))
+# future_words_pairs[1] = (w_i + 2, tag(w_i + 2))
+def extract(word, i):
+    dict = {}
+    prev_prev_pair = g_word_tag_pair_list[i - 2]
+    prev_pair = g_word_tag_pair_list[i - 1]
+    future_pair = g_word_tag_pair_list[i + 1]
+    future_future_pair = g_word_tag_pair_list[i + 2]
+    dict["pw"] = prev_pair[0]
+    dict["ppw"] = prev_prev_pair[0]
+    dict["pt"] = prev_pair[1]
+    dict["ppt_pt"] = prev_prev_pair[1] + " " + dict["pt"]
+    dict["fw"] = future_pair[0]
+    dict["ffw"] = future_future_pair[0]
+    if not is_rare(word):
+        dict["w"] = word
+    else:
+        add_suffixes_to_dict(word, 3, dict)
+        add_postfixes_to_dict(word, 3, dict)
+        add_specials_to_dict(word, dict)
+    return dict
+
+
+def write_features_to_output(output_f_name):
+    with open(output_f_name, "w") as out_f:
+        for i, word_tag_pair in enumerate(g_word_tag_pair_list):
+            if word_tag_pair[0] == "startline" or word_tag_pair[0] == "endline":
+                continue
+            out_feature_line = word_tag_pair[1]
+            features = extract(word_tag_pair[0], i)
+            out = ''.join([key + "=" + val + " " for key, val in features.items()])
+            out = out_feature_line + " " + out.strip() + "\n"
+            out_f.write(out)
 
 
 if __name__ == '__main__':
@@ -64,5 +97,5 @@ if __name__ == '__main__':
         exit(1)
     input_f_name = sys.argv[1]
     output_f_name = sys.argv[2]
-    g_word_dict = build_word_dict_from_input(input_f_name)
-    extract_features(input_f_name, output_f_name)
+    build_word_dicts_from_input(input_f_name)
+    write_features_to_output(output_f_name)
