@@ -6,16 +6,8 @@ from joblib import dump, load
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.linear_model import LogisticRegression
 from ExtractFeatures import extract
-from ExtractFeatures import build_word_freq_dic_from_input
 from collections import Counter
-import LightMLETrain
-import utils
 import time
-
-
-def update_window(window, word):
-    window[1] = window[0]
-    window[0] = word
 
 
 def load_model(mdl_f_name):
@@ -35,8 +27,6 @@ def load_model_input(input_f_name, feat_map_f_name):
         v = data_dic["v"]
         # known_word_tags = data_dic["known_word_tags"]
         tag_index_dict = data_dic["tag_index_dict"]
-        mle_estimates = data_dic["mle_estimates"]
-    LightMLETrain.deserialize_counters(mle_estimates)
 
     word_tag_pair_list = []
     with open(input_f_name, 'r', encoding='utf-8') as file:
@@ -44,27 +34,8 @@ def load_model_input(input_f_name, feat_map_f_name):
             start_pair = ("startline", "<S>")
             word_tag_pair_list.append(start_pair)
             word_tag_pair_list.append(start_pair)
-            window = [LightMLETrain.START_TAG, LightMLETrain.START_TAG]
             for s in line.strip().split(" "):
-                word = s
-                # Apply HMM Greedy Tagging algorithm to estimate tags
-                max_tag_p = float('-inf')
-                max_tag_v = ""
-                if word not in LightMLETrain.g_tag_per_word_dic.keys():
-                    word = word.lower()
-                    if word not in LightMLETrain.g_tag_per_word_dic.keys():
-                        word = utils.create_word_signature(word)
-                for tag in LightMLETrain.g_tag_per_word_dic[word]:
-                    if tag == LightMLETrain.START_TAG or tag == LightMLETrain.END_TAG:
-                        continue
-                    cur_tag_p = (np.log(LightMLETrain.get_e((word, tag), 0.35)) +
-                                 np.log(LightMLETrain.get_q(tag, window[0], window[1], 0.1, 0.1, 0.8)))
-                    if cur_tag_p > max_tag_p:
-                        max_tag_p = cur_tag_p
-                        max_tag_v = tag
-                update_window(window, max_tag_v)
-                ##########################
-                pair = (s, max_tag_v)
+                pair = (s, None)
                 word_tag_pair_list.append(pair)
             end_pair = ("endline", "<E>")
             word_tag_pair_list.append(end_pair)
@@ -110,7 +81,7 @@ def generative_predictor(clf, input_f_name, feat_map_f_name):
         if word_tag_pair[0] == "startline" or word_tag_pair[0] == "endline":
             continue
         features = extract(i, word_tag_pair_list)
-        #del features["w_not_feature"]
+        # del features["w_not_feature"]
         x = v.transform(features)
         y_hat = clf.predict_log_proba(x)
         y_hat = np.argmax(y_hat)
@@ -170,9 +141,7 @@ if __name__ == '__main__':
     mdl_f_name = sys.argv[2]
     feat_map_f_name = sys.argv[3]
     pred_f_name = sys.argv[4]
-    # build counts to extract features properly.
     total_start = time.perf_counter()
-    build_word_freq_dic_from_input(input_f_name)
     # load the model
     start = time.perf_counter()
     X, word_list, tag_index_dict = load_model_input(input_f_name, feat_map_f_name)
@@ -199,7 +168,6 @@ if __name__ == '__main__':
     print(f"entire program execution took {(total_end - total_start)} secs")
 
     # build counts to extract features properly.
-    # build_word_freq_dic_from_input(input_f_name)
     # classifier = load_model(mdl_f_name)
     # start = time.perf_counter()
     # word_list_pairs = generative_predictor(classifier, input_f_name, feat_map_f_name)
