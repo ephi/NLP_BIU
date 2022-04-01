@@ -35,7 +35,8 @@ def load_model_input(input_f_name, feat_map_f_name):
             word_tag_pair_list.append(start_pair)
             word_tag_pair_list.append(start_pair)
             for s in line.strip().split(" "):
-                pair = (s, None)
+                r = s.rsplit("/", 1)[0]
+                pair = (r, None)
                 word_tag_pair_list.append(pair)
             end_pair = ("endline", "<E>")
             word_tag_pair_list.append(end_pair)
